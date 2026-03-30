@@ -3,9 +3,13 @@ from __future__ import annotations
 from scraper.base import BaseScraper
 from scraper.anti_bot import AntiBotManager
 from scraper.sites.pap import PapScraper
+from scraper.sites.entreparticuliers import EntreparticuliersScraper
+from scraper.sites.paruvendu import ParuVenduScraper
 
 SCRAPERS: dict[str, type[BaseScraper]] = {
     "pap": PapScraper,
+    "entreparticuliers": EntreparticuliersScraper,
+    "paruvendu": ParuVenduScraper,
 }
 
 
