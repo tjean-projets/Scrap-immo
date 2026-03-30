@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -16,6 +19,64 @@ from app.services.lead_service import (
 )
 
 router = APIRouter(prefix="/api/leads", tags=["leads"])
+
+
+@router.get("/export")
+async def export_leads_csv(
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Export des leads au format CSV (RGPD : données personnelles incluses)."""
+    leads, _ = await get_leads(db, status=status, page=1, per_page=2000)
+
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=";", quoting=csv.QUOTE_ALL)
+
+    # Header
+    writer.writerow([
+        "ID", "Statut", "Priorite", "Urgence",
+        "Titre", "Site", "Code postal", "Ville",
+        "Prix (€)", "Surface (m²)", "Pieces",
+        "Vendeur", "Telephone", "Email",
+        "CA potentiel (€)", "Ecart prix (%)",
+        "Jours en vente", "Chronologie",
+        "Conseil strategique", "Script SMS",
+        "URL annonce", "Date creation",
+    ])
+
+    for lead in leads:
+        l = lead.listing
+        writer.writerow([
+            lead.id,
+            lead.status,
+            lead.strategic_priority or "",
+            lead.urgency_level or "",
+            l.title if l else "",
+            l.source_site if l else "",
+            l.postal_code if l else "",
+            l.city or "" if l else "",
+            l.price or "" if l else "",
+            l.surface_m2 or "" if l else "",
+            l.nb_rooms or "" if l else "",
+            l.seller_name or "" if l else "",
+            l.seller_phone or "" if l else "",
+            l.seller_email or "" if l else "",
+            lead.commission_amount or "",
+            f"{lead.price_gap_pct:+.1f}" if lead.price_gap_pct is not None else "",
+            lead.days_on_market or "",
+            lead.chronology_type or "",
+            lead.strategic_angle or "",
+            lead.strategic_sms or "",
+            l.source_url if l else "",
+            lead.created_at.strftime("%d/%m/%Y %H:%M") if lead.created_at else "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=leads_scrap_immo.csv"},
+    )
 
 
 @router.get("", response_model=dict)
@@ -65,7 +126,9 @@ async def get_notification(lead_id: int, db: AsyncSession = Depends(get_db)):
 async def patch_lead(
     lead_id: int, body: LeadUpdate, db: AsyncSession = Depends(get_db)
 ):
-    lead = await update_lead(db, lead_id, body.notes, body.last_contacted_at)
+    lead = await update_lead(
+        db, lead_id, body.notes, body.last_contacted_at, body.strategic_sms
+    )
     if not lead:
         raise HTTPException(404, "Lead not found")
     return LeadOut.from_lead(lead)

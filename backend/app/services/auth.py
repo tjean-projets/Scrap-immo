@@ -2,21 +2,20 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+import jwt
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User, Territory
+from app.config import settings
 
 security = HTTPBearer()
-
-# Simple token store (en production: JWT ou Redis)
-_tokens: dict[str, int] = {}  # token -> user_id
 
 
 def hash_password(password: str) -> str:
@@ -26,14 +25,17 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    salt, hash_val = hashed.split(":")
+    parts = hashed.split(":")
+    if len(parts) != 2:
+        return False
+    salt, hash_val = parts
     return hashlib.sha256(f"{salt}{password}".encode()).hexdigest() == hash_val
 
 
 def create_token(user_id: int) -> str:
-    token = secrets.token_urlsafe(32)
-    _tokens[token] = user_id
-    return token
+    exp = datetime.now(timezone.utc) + timedelta(days=settings.jwt_expiration_days)
+    payload = {"sub": str(user_id), "exp": exp}
+    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
 async def get_current_user(
@@ -41,8 +43,12 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     token = credentials.credentials
-    user_id = _tokens.get(token)
-    if not user_id:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+        user_id = int(payload["sub"])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expiré, veuillez vous reconnecter")
+    except (jwt.InvalidTokenError, KeyError, ValueError):
         raise HTTPException(status_code=401, detail="Token invalide")
 
     result = await db.execute(select(User).where(User.id == user_id))

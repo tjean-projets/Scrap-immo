@@ -1,13 +1,38 @@
-import { useQuery } from '@tanstack/react-query'
-import { getLead } from '../api/client'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { getLead, updateLead, exportLeadsCSV } from '../api/client'
 import type { Lead } from '../types'
-import { ArrowLeft, Phone, MessageCircle, ExternalLink, Flame, TrendingDown, Clock, Copy } from 'lucide-react'
+import { ArrowLeft, Phone, MessageCircle, ExternalLink, Flame, TrendingDown, Clock, Copy, Check, Pencil, Download } from 'lucide-react'
+import { useState } from 'react'
 
 export default function LeadDetail({ leadId, onBack }: { leadId: number; onBack: () => void }) {
+  const queryClient = useQueryClient()
   const { data: lead, isLoading } = useQuery<Lead>({
     queryKey: ['lead', leadId],
     queryFn: () => getLead(leadId),
   })
+
+  const [editingSms, setEditingSms] = useState(false)
+  const [smsText, setSmsText] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { strategic_sms?: string; notes?: string }) =>
+      updateLead(leadId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
+      setEditingSms(false)
+    },
+  })
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  const handleSaveSms = () => {
+    updateMutation.mutate({ strategic_sms: smsText })
+  }
 
   if (isLoading || !lead) {
     return <div className="p-8 text-slate-400">Chargement...</div>
@@ -157,21 +182,78 @@ export default function LeadDetail({ leadId, onBack }: { leadId: number; onBack:
             <p className="text-sm text-slate-300 leading-relaxed">{lead.strategic?.angle}</p>
           </AnalysisCard>
 
-          {/* SMS Script */}
-          {lead.strategic?.sms_script && (
-            <AnalysisCard title="Script SMS / WhatsApp" icon={<MessageCircle className="w-5 h-5 text-green-400" />}>
-              <div className="bg-slate-800 rounded-lg p-3 text-sm text-slate-300 leading-relaxed relative">
-                <p>{lead.strategic.sms_script}</p>
-                <button
-                  onClick={() => navigator.clipboard.writeText(lead.strategic?.sms_script || '')}
-                  className="absolute top-2 right-2 p-1 hover:bg-slate-700 rounded"
-                  title="Copier"
-                >
-                  <Copy className="w-4 h-4 text-slate-500" />
-                </button>
+          {/* SMS Script — editable */}
+          <AnalysisCard title="Script SMS / WhatsApp" icon={<MessageCircle className="w-5 h-5 text-green-400" />}>
+            {editingSms ? (
+              <div className="space-y-2">
+                <textarea
+                  value={smsText}
+                  onChange={e => setSmsText(e.target.value)}
+                  rows={5}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-sm text-slate-300 leading-relaxed focus:border-emerald-500 focus:outline-none resize-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveSms}
+                    disabled={updateMutation.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-700 text-white rounded-lg text-xs font-medium transition-colors"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    {updateMutation.isPending ? 'Sauvegarde...' : 'Sauvegarder'}
+                  </button>
+                  <button
+                    onClick={() => setEditingSms(false)}
+                    className="px-3 py-1.5 bg-slate-800 text-slate-400 hover:bg-slate-700 rounded-lg text-xs transition-colors"
+                  >
+                    Annuler
+                  </button>
+                </div>
               </div>
-            </AnalysisCard>
-          )}
+            ) : (
+              <div className="bg-slate-800 rounded-lg p-3 text-sm text-slate-300 leading-relaxed relative group">
+                {lead.strategic?.sms_script ? (
+                  <p className="pr-16 whitespace-pre-wrap">{lead.strategic.sms_script}</p>
+                ) : (
+                  <p className="text-slate-500 italic">Aucun script. Cliquez sur modifier pour en créer un.</p>
+                )}
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <button
+                    onClick={() => {
+                      setSmsText(lead.strategic?.sms_script || '')
+                      setEditingSms(true)
+                    }}
+                    className="p-1 hover:bg-slate-700 rounded transition-colors"
+                    title="Modifier"
+                  >
+                    <Pencil className="w-4 h-4 text-slate-500 hover:text-slate-300" />
+                  </button>
+                  {lead.strategic?.sms_script && (
+                    <button
+                      onClick={() => handleCopy(lead.strategic?.sms_script || '')}
+                      className="p-1 hover:bg-slate-700 rounded transition-colors"
+                      title="Copier"
+                    >
+                      {copied
+                        ? <Check className="w-4 h-4 text-emerald-400" />
+                        : <Copy className="w-4 h-4 text-slate-500 hover:text-slate-300" />
+                      }
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* Quick send via WhatsApp */}
+            {lead.strategic?.sms_script && l?.seller_phone && (
+              <a
+                href={`https://wa.me/${l.seller_phone.replace(/\D/g, '')}?text=${encodeURIComponent(lead.strategic.sms_script)}`}
+                target="_blank"
+                className="mt-2 inline-flex items-center gap-2 bg-green-500/10 text-green-400 hover:bg-green-500/20 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Envoyer via WhatsApp
+              </a>
+            )}
+          </AnalysisCard>
 
           {/* Description */}
           {l?.description && (

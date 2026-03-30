@@ -69,6 +69,7 @@ async def update_lead(
     lead_id: int,
     notes: str | None = None,
     last_contacted_at: datetime | None = None,
+    strategic_sms: str | None = None,
 ) -> Lead | None:
     lead = await get_lead(session, lead_id)
     if not lead:
@@ -78,6 +79,8 @@ async def update_lead(
         lead.notes = notes
     if last_contacted_at is not None:
         lead.last_contacted_at = last_contacted_at
+    if strategic_sms is not None:
+        lead.strategic_sms = strategic_sms
 
     lead.touch()
     await session.commit()

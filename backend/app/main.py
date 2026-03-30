@@ -27,15 +27,32 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Ensure default config exists
     async with async_session() as session:
         from sqlalchemy import select
-        result = await session.execute(
-            select(ScrapingConfig).where(ScrapingConfig.id == 1)
-        )
+        from app.config import settings
+        from app.models.user import User
+        from app.models.config import ScrapingConfig as Cfg
+        from app.services.auth import hash_password
+
+        # Seed default scraping config
+        result = await session.execute(select(Cfg).where(Cfg.id == 1))
         if not result.scalar_one_or_none():
-            session.add(ScrapingConfig(id=1))
+            session.add(Cfg(id=1))
             await session.commit()
+            logger.info("config_seeded")
+
+        # Seed admin user
+        result = await session.execute(select(User).where(User.email == settings.admin_email))
+        if not result.scalar_one_or_none():
+            admin = User(
+                email=settings.admin_email,
+                hashed_password=hash_password(settings.admin_password),
+                full_name="Admin",
+                is_admin=True,
+            )
+            session.add(admin)
+            await session.commit()
+            logger.info("admin_created", email=settings.admin_email)
 
     await setup_scheduler()
     logger.info("app_started")

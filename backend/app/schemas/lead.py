@@ -108,6 +108,7 @@ class LeadStatusUpdate(BaseModel):
 class LeadUpdate(BaseModel):
     notes: str | None = None
     last_contacted_at: datetime | None = None
+    strategic_sms: str | None = None
 
 
 class LeadBulkStatusUpdate(BaseModel):

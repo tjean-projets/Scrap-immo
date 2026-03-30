@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getLeads, updateLeadStatus, getPipelineValue, getKanbanColumns, createKanbanColumn, updateKanbanColumn, deleteKanbanColumn } from '../api/client'
+import { getLeads, updateLeadStatus, getPipelineValue, getKanbanColumns, createKanbanColumn, updateKanbanColumn, deleteKanbanColumn, exportLeadsCSV } from '../api/client'
 import LeadCard from '../components/LeadCard'
 import LeadDetail from './LeadDetail'
 import type { Lead, PipelineValue, KanbanColumnType } from '../types'
-import { Filter, SortAsc, Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Filter, SortAsc, Plus, Pencil, Trash2, Check, X, Download } from 'lucide-react'
 
 type SortKey = 'date' | 'price' | 'urgency' | 'commission'
 type FilterPriority = 'all' | 'critique' | 'haute' | 'normale' | 'basse'
@@ -64,6 +64,18 @@ export default function KanbanPage() {
     mutationFn: (id: number) => deleteKanbanColumn(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['kanban-columns'] }),
   })
+
+  const handleExportCSV = async () => {
+    try {
+      const blob = await exportLeadsCSV()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'leads_scrap_immo.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {}
+  }
 
   const leads: Lead[] = leadsData?.items || []
 
@@ -145,6 +157,17 @@ export default function KanbanPage() {
       )}
 
       {/* Filters bar */}
+      <div className="mb-3 lg:mb-4 flex flex-wrap items-center gap-2">
+        <button
+          onClick={handleExportCSV}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-xs font-medium transition-colors"
+          title="Exporter en CSV"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Export CSV</span>
+        </button>
+      </div>
+      {/* Filters bar (inner) */}
       <div className="mb-3 lg:mb-4 flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5 text-xs text-slate-400">
           <Filter className="w-3.5 h-3.5" />

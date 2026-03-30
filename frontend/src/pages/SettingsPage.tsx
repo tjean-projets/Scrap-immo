@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getSettings, updateSettings } from '../api/client'
+import { getSettings, updateSettings, getCommissionConfig, updateCommissionConfig } from '../api/client'
 import { Save, Plus, X, Clock, MapPin, Globe, Euro, Trash2 } from 'lucide-react'
-import axios from 'axios'
 
 interface CommissionTier {
   min: number
@@ -40,12 +39,10 @@ export default function SettingsPage() {
 
   // Load commission config
   useEffect(() => {
-    axios.get('/api/auth/commission', {
-      headers: { Authorization: 'Bearer dummy' }
-    }).then(r => {
-      if (r.data.commission_type) setCommissionType(r.data.commission_type)
-      if (r.data.commission_rate) setFixedRate(r.data.commission_rate)
-      if (r.data.commission_tiers) setTiers(r.data.commission_tiers)
+    getCommissionConfig().then(r => {
+      if (r.commission_type) setCommissionType(r.commission_type)
+      if (r.commission_rate) setFixedRate(r.commission_rate)
+      if (r.commission_tiers) setTiers(r.commission_tiers)
     }).catch(() => {})
   }, [])
 
@@ -57,13 +54,13 @@ export default function SettingsPage() {
       enabled_sites: sites,
     })
 
-    // Save commission settings (without auth for now, will work with token later)
+    // Save commission settings
     try {
-      await axios.put('/api/auth/commission', {
+      await updateCommissionConfig({
         commission_type: commissionType,
         commission_rate: fixedRate,
         commission_tiers: commissionType === 'progressive' ? tiers : null,
-      }, { headers: { Authorization: 'Bearer dummy' } })
+      })
     } catch {}
 
     queryClient.invalidateQueries({ queryKey: ['settings'] })
