@@ -12,13 +12,8 @@ from app.config import settings
 if TYPE_CHECKING:
     from app.models.listing import Listing
 
-LEAD_STATUSES = [
-    "nouveau",
-    "tentative_appel",
-    "rdv_estimation",
-    "mandat_signe",
-    "archive",
-]
+# Default status for new leads (matches the default kanban column name)
+DEFAULT_LEAD_STATUS = "Nouveau Lead"
 
 
 def _default_purge_at():
@@ -32,7 +27,7 @@ class Lead(Base):
     listing_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("listings.id", ondelete="CASCADE"), unique=True
     )
-    status: Mapped[str] = mapped_column(Text, default="nouveau", index=True)
+    status: Mapped[str] = mapped_column(Text, default="Nouveau Lead", index=True)
     notes: Mapped[Optional[str]] = mapped_column(Text)
     last_contacted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     last_interaction_at: Mapped[datetime] = mapped_column(

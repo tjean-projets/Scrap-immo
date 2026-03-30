@@ -1,15 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { getDashboardStats, getPipelineValue, getTerritoireDashboard, getScrapeRuns, triggerScrape } from '../api/client'
-import type { DashboardStats, PipelineValue, TerritoireDashboard } from '../types'
-import { KANBAN_COLUMNS } from '../types'
-import { Zap, Users, MapPin, TrendingUp, RefreshCw } from 'lucide-react'
+import { getDashboardStats, getPipelineValue, getScrapeRuns, triggerScrape, getKanbanColumns } from '../api/client'
+import type { DashboardStats, PipelineValue, KanbanColumnType } from '../types'
+import { Zap, Users, TrendingUp, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 
 export default function DashboardPage() {
   const [scraping, setScraping] = useState(false)
   const { data: stats } = useQuery<DashboardStats>({ queryKey: ['stats'], queryFn: getDashboardStats, refetchInterval: 15000 })
   const { data: pipeline } = useQuery<PipelineValue>({ queryKey: ['pipeline'], queryFn: () => getPipelineValue(5), refetchInterval: 15000 })
-  const { data: territoire } = useQuery<TerritoireDashboard>({ queryKey: ['territoire'], queryFn: getTerritoireDashboard, refetchInterval: 15000 })
+  const { data: columns = [] } = useQuery<KanbanColumnType[]>({ queryKey: ['kanban-columns'], queryFn: getKanbanColumns })
   const { data: runs } = useQuery({ queryKey: ['runs'], queryFn: getScrapeRuns, refetchInterval: 15000 })
 
   const handleScrape = async () => {
@@ -19,10 +18,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Top row - Key metrics */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+    <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+      {/* Top row */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <h1 className="text-xl lg:text-2xl font-bold text-white">Dashboard</h1>
         <button
           onClick={handleScrape}
           disabled={scraping}
@@ -34,82 +33,57 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
         <KpiCard
           icon={<Users className="w-5 h-5 text-blue-400" />}
           label="Leads totaux"
           value={stats?.total_leads || 0}
-          color="blue"
         />
         <KpiCard
           icon={<Zap className="w-5 h-5 text-amber-400" />}
-          label="Leads 24h"
-          value={territoire?.leads_24h || 0}
-          color="amber"
+          label="Nouveaux leads"
+          value={stats?.by_status?.['Nouveau Lead'] || 0}
         />
         <KpiCard
           icon={<TrendingUp className="w-5 h-5 text-emerald-400" />}
           label="CA Pipeline"
           value={`${(pipeline?.totaux.ca_potentiel || 0).toLocaleString('fr-FR')}\u20ac`}
-          color="emerald"
-        />
-        <KpiCard
-          icon={<MapPin className="w-5 h-5 text-purple-400" />}
-          label="Zones exclusives"
-          value={territoire?.zones_exclusives?.length || 0}
-          color="purple"
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        {/* Pipeline by status */}
-        <div className="col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Pipeline par statut</h3>
-          <div className="space-y-3">
-            {KANBAN_COLUMNS.filter(c => c.key !== 'archive').map(col => {
-              const data = pipeline?.pipeline[col.key]
-              const maxComm = Math.max(...Object.values(pipeline?.pipeline || {}).map(v => v.total_commission || 0), 1)
-              const pct = data ? (data.total_commission / maxComm) * 100 : 0
-              return (
-                <div key={col.key} className="flex items-center gap-3">
-                  <div className="w-32 text-xs text-slate-400 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: col.color }} />
-                    {col.label}
-                  </div>
-                  <div className="flex-1 bg-slate-800 rounded-full h-6 overflow-hidden">
-                    <div
-                      className="h-full rounded-full flex items-center px-2 text-[10px] text-white font-medium transition-all duration-500"
-                      style={{ width: `${Math.max(pct, 2)}%`, backgroundColor: col.color + '80' }}
-                    >
-                      {data?.total_commission ? `${data.total_commission.toLocaleString('fr-FR')}€` : ''}
-                    </div>
-                  </div>
-                  <span className="text-xs text-slate-500 w-8 text-right">{data?.count || 0}</span>
+      {/* Pipeline par colonne — CA progression */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-white mb-4">CA Pipeline par avancement</h3>
+        <div className="space-y-3">
+          {columns.filter(c => !c.is_archive).map(col => {
+            const data = pipeline?.pipeline[col.name]
+            const maxComm = Math.max(
+              ...columns.map(c => pipeline?.pipeline[c.name]?.total_commission || 0),
+              1
+            )
+            const pct = data ? (data.total_commission / maxComm) * 100 : 0
+            return (
+              <div key={col.id} className="flex items-center gap-3">
+                <div className="w-36 text-xs text-slate-400 flex items-center gap-2 flex-shrink-0">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: col.color }} />
+                  <span className="truncate">{col.name}</span>
                 </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Leads par site */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Leads par source</h3>
-          {stats?.by_site && Object.entries(stats.by_site).length > 0 ? (
-            <div className="space-y-3">
-              {Object.entries(stats.by_site).sort((a, b) => b[1] - a[1]).map(([site, count]) => (
-                <div key={site} className="flex justify-between items-center">
-                  <span className="text-sm text-slate-300 uppercase">{site}</span>
-                  <span className="bg-slate-800 text-white px-3 py-1 rounded-lg text-sm font-medium">{count}</span>
+                <div className="flex-1 bg-slate-800 rounded-full h-7 overflow-hidden">
+                  <div
+                    className="h-full rounded-full flex items-center px-3 text-[11px] text-white font-medium transition-all duration-500"
+                    style={{ width: `${Math.max(pct, 2)}%`, backgroundColor: col.color + '80' }}
+                  >
+                    {data?.total_commission ? `${data.total_commission.toLocaleString('fr-FR')}\u20ac` : ''}
+                  </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">Aucun lead pour l'instant</p>
-          )}
+                <span className="text-xs text-slate-500 w-8 text-right flex-shrink-0">{data?.count || 0}</span>
+              </div>
+            )
+          })}
         </div>
       </div>
 
-      {/* Scrape runs history */}
+      {/* Historique des scrapings */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
         <h3 className="text-sm font-semibold text-white mb-4">Historique des scrapings</h3>
         <div className="overflow-x-auto">
@@ -122,13 +96,13 @@ export default function DashboardPage() {
                 <th className="text-center py-2 px-3">Trouvees</th>
                 <th className="text-center py-2 px-3">Nouvelles</th>
                 <th className="text-center py-2 px-3">Dedup</th>
-                <th className="text-left py-2 px-3">Date</th>
+                <th className="text-left py-2 px-3 hidden sm:table-cell">Date</th>
               </tr>
             </thead>
             <tbody>
               {(runs || []).slice(0, 10).map((r: any) => (
                 <tr key={r.id} className="border-b border-slate-800/50 hover:bg-slate-800/30">
-                  <td className="py-2 px-3 text-slate-300 uppercase">{r.site}</td>
+                  <td className="py-2 px-3 text-slate-300 uppercase text-xs">{r.site}</td>
                   <td className="py-2 px-3 text-slate-400">{r.postal_code}</td>
                   <td className="py-2 px-3 text-center">
                     <span className={`px-2 py-0.5 rounded text-xs ${r.status === 'success' ? 'bg-green-900/30 text-green-400' : r.status === 'error' ? 'bg-red-900/30 text-red-400' : 'bg-amber-900/30 text-amber-400'}`}>
@@ -138,7 +112,7 @@ export default function DashboardPage() {
                   <td className="py-2 px-3 text-center text-slate-300">{r.listings_found}</td>
                   <td className="py-2 px-3 text-center text-emerald-400 font-medium">{r.listings_new}</td>
                   <td className="py-2 px-3 text-center text-slate-500">{r.listings_dedup}</td>
-                  <td className="py-2 px-3 text-slate-500 text-xs">
+                  <td className="py-2 px-3 text-slate-500 text-xs hidden sm:table-cell">
                     {r.started_at ? new Date(r.started_at).toLocaleString('fr-FR') : '-'}
                   </td>
                 </tr>
@@ -154,7 +128,7 @@ export default function DashboardPage() {
   )
 }
 
-function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) {
+function KpiCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
       <div className="flex items-center gap-2 mb-2">

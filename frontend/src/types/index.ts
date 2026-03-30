@@ -17,8 +17,18 @@ export interface Listing {
   seller_phone: string | null
   seller_email: string | null
   image_urls: string[]
+  alternate_urls: { site: string; url: string }[]
   publication_date: string | null
   created_at: string
+}
+
+export interface KanbanColumnType {
+  id: number
+  name: string
+  color: string
+  position: number
+  is_default: boolean
+  is_archive: boolean
 }
 
 export interface UrgencyInfo {
@@ -94,12 +104,5 @@ export interface TerritoireDashboard {
   top_zones: { postal_code: string; total_leads: number }[]
 }
 
-export type LeadStatus = 'nouveau' | 'tentative_appel' | 'rdv_estimation' | 'mandat_signe' | 'archive'
-
-export const KANBAN_COLUMNS: { key: LeadStatus; label: string; color: string }[] = [
-  { key: 'nouveau', label: 'Nouveau Lead', color: '#3b82f6' },
-  { key: 'tentative_appel', label: 'Tentative Appel', color: '#f59e0b' },
-  { key: 'rdv_estimation', label: 'RDV Estimation', color: '#8b5cf6' },
-  { key: 'mandat_signe', label: 'Mandat Signe', color: '#10b981' },
-  { key: 'archive', label: 'Archive', color: '#6b7280' },
-]
+// KANBAN_COLUMNS are now loaded dynamically from the API
+// See getKanbanColumns() in api/client.ts

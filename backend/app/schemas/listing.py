@@ -23,6 +23,7 @@ class ListingOut(BaseModel):
     seller_phone: str | None
     seller_email: str | None
     image_urls: list[str]
+    alternate_urls: list[dict] = []
     publication_date: datetime | None
     created_at: datetime
 

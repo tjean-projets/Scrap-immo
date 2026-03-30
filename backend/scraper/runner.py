@@ -118,19 +118,23 @@ class ScraperRunner:
             item.postal_code, item.price, item.surface_m2, item.nb_rooms
         )
 
-        # Check cross-site dedup
+        # Check cross-site dedup — if found, add alternate URL instead of rejecting
         existing_hash = await session.execute(
-            select(Listing.id).where(
+            select(Listing).where(
                 Listing.dedup_hash == dedup_hash,
                 Listing.postal_code == item.postal_code,
             )
         )
-        if existing_hash.scalar_one_or_none():
+        existing_listing = existing_hash.scalar_one_or_none()
+        if existing_listing:
+            # Add the new URL as an alternate source
+            existing_listing.add_alternate_url(item.source_site, item.source_url)
+            await session.commit()
             logger.info(
-                "cross_site_dedup",
+                "cross_site_dedup_merged",
                 source=item.source_site,
                 url=item.source_url,
-                hash=dedup_hash,
+                merged_into=existing_listing.id,
             )
             return "dedup"
 

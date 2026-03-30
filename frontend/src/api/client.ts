@@ -42,4 +42,20 @@ export const updateSettings = (data: Record<string, unknown>) =>
 export const triggerScrape = () =>
   api.post('/scraper/run').then(r => r.data)
 
+// Kanban columns
+export const getKanbanColumns = () =>
+  api.get('/kanban/columns').then(r => r.data)
+
+export const createKanbanColumn = (data: { name: string; color: string }) =>
+  api.post('/kanban/columns', data).then(r => r.data)
+
+export const updateKanbanColumn = (id: number, data: { name?: string; color?: string }) =>
+  api.patch(`/kanban/columns/${id}`, data).then(r => r.data)
+
+export const deleteKanbanColumn = (id: number) =>
+  api.delete(`/kanban/columns/${id}`).then(r => r.data)
+
+export const reorderKanbanColumns = (column_ids: number[]) =>
+  api.put('/kanban/columns/reorder', { column_ids }).then(r => r.data)
+
 export default api

@@ -6,7 +6,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models.lead import Lead, LEAD_STATUSES
+from app.models.lead import Lead
 from app.models.listing import Listing
 
 
@@ -52,8 +52,7 @@ async def get_lead(session: AsyncSession, lead_id: int) -> Lead | None:
 async def update_lead_status(
     session: AsyncSession, lead_id: int, status: str
 ) -> Lead | None:
-    if status not in LEAD_STATUSES:
-        raise ValueError(f"Invalid status: {status}")
+    # Status is now any kanban column name (no validation against fixed list)
 
     lead = await get_lead(session, lead_id)
     if not lead:
@@ -102,16 +101,11 @@ async def delete_lead(session: AsyncSession, lead_id: int) -> bool:
 
 
 async def get_dashboard_stats(session: AsyncSession) -> dict:
-    # Count by status
-    status_counts = {}
-    for status in LEAD_STATUSES:
-        count = (
-            await session.execute(
-                select(func.count(Lead.id)).where(Lead.status == status)
-            )
-        ).scalar() or 0
-        status_counts[status] = count
-
+    # Count by status (dynamic from actual data)
+    status_result = await session.execute(
+        select(Lead.status, func.count(Lead.id)).group_by(Lead.status)
+    )
+    status_counts = {row[0]: row[1] for row in status_result.all()}
     total = sum(status_counts.values())
 
     # Count by source site

@@ -16,17 +16,17 @@ export default function LeadDetail({ leadId, onBack }: { leadId: number; onBack:
   const l = lead.listing
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-3 lg:p-6 max-w-4xl mx-auto">
       {/* Back button */}
-      <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 text-sm">
+      <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-4 lg:mb-6 text-sm">
         <ArrowLeft className="w-4 h-4" /> Retour au Kanban
       </button>
 
       {/* Header */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-2xl font-bold text-white">{l?.title}</h2>
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 lg:p-6 mb-4 lg:mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl lg:text-2xl font-bold text-white truncate">{l?.title}</h2>
             <p className="text-slate-400 mt-1">
               {l?.city || l?.postal_code} &bull; {l?.source_site?.toUpperCase()} &bull; {l?.property_type}
             </p>
@@ -53,7 +53,7 @@ export default function LeadDetail({ leadId, onBack }: { leadId: number; onBack:
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 mt-4">
+        <div className="flex flex-wrap gap-2 lg:gap-3 mt-4">
           {l?.seller_phone && (
             <a href={`tel:${l.seller_phone}`} className="flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-2 rounded-lg hover:bg-blue-500/20 text-sm">
               <Phone className="w-4 h-4" /> {l.seller_phone}
@@ -66,9 +66,26 @@ export default function LeadDetail({ leadId, onBack }: { leadId: number; onBack:
             <ExternalLink className="w-4 h-4" /> Voir l'annonce
           </a>
         </div>
+
+        {/* Alternate URLs - cross-site links */}
+        {l?.alternate_urls && l.alternate_urls.length > 0 && (
+          <div className="mt-4 bg-slate-800/50 rounded-lg p-3">
+            <p className="text-xs text-slate-500 mb-2">Aussi disponible sur :</p>
+            <div className="flex flex-wrap gap-2">
+              <a href={l.source_url} target="_blank" className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded-lg hover:bg-blue-500/20">
+                <ExternalLink className="w-3 h-3" /> {l.source_site?.toUpperCase()}
+              </a>
+              {l.alternate_urls.map((alt, i) => (
+                <a key={i} href={alt.url} target="_blank" className="inline-flex items-center gap-1 text-xs bg-purple-500/10 text-purple-400 px-2.5 py-1 rounded-lg hover:bg-purple-500/20">
+                  <ExternalLink className="w-3 h-3" /> {alt.site?.toUpperCase()}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         {/* Analyses */}
         <div className="space-y-4">
           {/* Urgency */}

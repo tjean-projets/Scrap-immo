@@ -38,6 +38,7 @@ class Listing(Base):
     publication_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
     scraped_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     dedup_hash: Mapped[Optional[str]] = mapped_column(Text, index=True)
+    _alternate_urls: Mapped[Optional[str]] = mapped_column("alternate_urls", Text)  # JSON: [{site, url}]
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -54,6 +55,22 @@ class Listing(Base):
     @image_urls.setter
     def image_urls(self, value: List[str]):
         self._image_urls = json.dumps(value)
+
+    @property
+    def alternate_urls(self) -> List[dict]:
+        if self._alternate_urls:
+            return json.loads(self._alternate_urls)
+        return []
+
+    @alternate_urls.setter
+    def alternate_urls(self, value: List[dict]):
+        self._alternate_urls = json.dumps(value, ensure_ascii=False)
+
+    def add_alternate_url(self, site: str, url: str):
+        urls = self.alternate_urls
+        if not any(u.get("url") == url for u in urls):
+            urls.append({"site": site, "url": url})
+            self.alternate_urls = urls
 
     __table_args__ = (
         Index("ix_listings_source_site", "source_site"),
