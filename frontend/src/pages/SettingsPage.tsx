@@ -18,6 +18,7 @@ export default function SettingsPage() {
   const [sites, setSites] = useState<string[]>([])
   const [newCP, setNewCP] = useState('')
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   // Commission state
   const [commissionType, setCommissionType] = useState<'fixed' | 'progressive'>('fixed')
@@ -47,25 +48,26 @@ export default function SettingsPage() {
   }, [])
 
   const saveAll = async () => {
-    // Save scraping settings
-    await updateSettings({
-      postal_codes: postalCodes,
-      schedule_hours: hours,
-      enabled_sites: sites,
-    })
-
-    // Save commission settings
+    setSaveError('')
     try {
-      await updateCommissionConfig({
-        commission_type: commissionType,
-        commission_rate: fixedRate,
-        commission_tiers: commissionType === 'progressive' ? tiers : null,
+      await updateSettings({
+        postal_codes: postalCodes,
+        schedule_hours: hours,
+        enabled_sites: sites,
       })
-    } catch {}
-
-    queryClient.invalidateQueries({ queryKey: ['settings'] })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+      try {
+        await updateCommissionConfig({
+          commission_type: commissionType,
+          commission_rate: fixedRate,
+          commission_tiers: commissionType === 'progressive' ? tiers : null,
+        })
+      } catch {}
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch {
+      setSaveError('Erreur de sauvegarde — vérifiez que le backend est démarré.')
+    }
   }
 
   const addCP = () => {
@@ -137,15 +139,20 @@ export default function SettingsPage() {
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Parametres</h1>
-        <button
-          onClick={saveAll}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            saved ? 'bg-green-500 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-          }`}
-        >
-          <Save className="w-4 h-4" />
-          {saved ? 'Enregistre !' : 'Enregistrer'}
-        </button>
+        <div className="flex items-center gap-3">
+          {saveError && (
+            <p className="text-xs text-red-400">{saveError}</p>
+          )}
+          <button
+            onClick={saveAll}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              saved ? 'bg-green-500 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+            }`}
+          >
+            <Save className="w-4 h-4" />
+            {saved ? 'Enregistre !' : 'Enregistrer'}
+          </button>
+        </div>
       </div>
 
       {/* === COMMISSION === */}

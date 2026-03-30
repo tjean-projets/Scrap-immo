@@ -63,6 +63,21 @@ class ScraperRunner:
         try:
             scraper = get_scraper(site_key, self.anti_bot)
             scraped = await scraper.scrape(postal_code, transaction_type)
+
+            # Strict postal code filter — some sites (Leboncoin, Bien'ici…)
+            # return geo-radius results from neighbouring communes. We only
+            # keep exact matches for the requested code.
+            before_filter = len(scraped)
+            scraped = [item for item in scraped if item.postal_code == postal_code]
+            filtered_out = before_filter - len(scraped)
+            if filtered_out:
+                logger.info(
+                    "postal_code_filter",
+                    site=site_key,
+                    requested=postal_code,
+                    filtered_out=filtered_out,
+                )
+
             run.listings_found = len(scraped)
 
             new_count = 0
